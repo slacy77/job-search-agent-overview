@@ -1,55 +1,89 @@
-# 🤖 Job Search Agent Overview
+# Job Search Agent — Project Overview
 
-An AI-powered job search agent that autonomously finds job postings, analyzes them against my resume, scores the match, identifies red flags, and automatically logs strong opportunities to a Google Sheet — built with Python and the Anthropic Claude API.
+An AI-powered job search agent I built from scratch during parental leave to automate and improve my own job search. It finds roles, evaluates them against my background, generates application materials, and runs every morning without me touching it.
+
+This page is a plain-English walkthrough of what I built, how it works, and what I learned. The code lives in a private repo to protect credentials and personal data.
+
+---
+
+## The Problem I Was Solving
+
+Job searching manually is slow and inconsistent. Reading 10 postings, evaluating fit, tailoring a resume, drafting a cover letter — done properly it takes hours per day. I wanted to automate the repetitive parts so I could focus on the parts that actually require a human: conversations, relationships, and judgment calls.
+
+I also wanted to build something real with the Anthropic Claude API rather than just take courses about it.
 
 ---
 
 ## What It Does
 
-### Autonomous Mode
-1. **Searches** Google Jobs via SerpAPI for roles matching my criteria
-2. **Fast scans** each role using the job description returned by SerpAPI
-3. **Scores** the match against my resume using Claude
-4. **Deep dives** on strong matches (70+) — fetches the full job posting page for enriched analysis
-5. **Decides** autonomously — logs only roles that meet the score threshold
-6. **Logs** to Google Sheets — date, title, company, score, URL, fit notes, red flags, bottom line, date posted, and compensation range
+### Every morning, automatically:
+1. Searches Google Jobs for Customer Success leadership roles in my target market
+2. Fast-scans each role against my resume and scores the match out of 100
+3. Skips anything below 70 — and skips roles already in my tracker
+4. Deep-dives on strong matches by fetching the full job posting page
+5. Generates a tailored cover letter as a starting draft
+6. Rewrites my resume bullets to surface the most relevant experience for that role
+7. Logs everything to a Google Sheet — score, fit notes, red flags, compensation, date posted
 
-### Manual Mode
-- Paste any job posting URL directly and get instant analysis
-- Batch mode — paste multiple URLs at once and process them all in one run
+### On demand:
+- Paste any job URL and get instant analysis
+- Batch mode — paste 10 URLs at once and process them all
 
 ---
 
-## Example Output
+## How It Works
 
+```
+GitHub Actions triggers at 8am Pacific
+        ↓
+SerpAPI searches Google Jobs for matching roles
+        ↓
+Claude fast-scans each role from the job description
+        ↓
+Score < 70 → skip
+Already in tracker → skip (duplicate detection)
+        ↓
+Score ≥ 70 + new role → fetch full job posting page
+        ↓
+Claude deep-dives the full posting (enriched analysis)
+        ↓
+Generate tailored cover letter → save to file
+Rewrite resume bullets → save to file
+Log full analysis to Google Sheets
+```
+
+The two-pass design keeps things fast — Claude only does the expensive deep-dive on roles that actually clear the bar.
+
+---
+
+## What the Output Looks Like
+
+**In the terminal:**
 ```
 🔍 Searching for: Customer Success Director
 📍 Location: San Francisco
 
 ✅ Found 10 roles. Analyzing each one...
 
-[1/10] Director of Customer Success at Salesforce
-Match Score: 82/100
+[3/10] Director of Customer Success at DroneDeploy
+Match Score: 78/100
+Compensation: $170,000 - $200,000
 Date Posted: June 2026
-Compensation: $180,000 - $220,000
-Notes: Strong alignment with 15+ years in SaaS Customer Success leadership...
-Red Flags: Large org may limit autonomy compared to startup experience...
-Bottom Line: Strong fit — apply within the week.
+Notes: Strong alignment with CS leadership background and team-building experience...
+Red Flags: Series C stage with rapid headcount growth may create hiring pressure...
+Bottom Line: Strong fit — early-stage enough to have real impact, funded enough to be stable.
 
 ⭐ Strong match! Fetching full posting for richer data...
-✅ Full posting fetched — doing enriched analysis...
-Logging to Google Sheet...
-
-📊 SEARCH SUMMARY
-#    Score    Company                   Title
-═══════════════════════════════════════════════════════════════════════════
-1    82/100   Salesforce                Director of Customer Success    STRONG MATCH
-2    78/100   DroneDeploy               Director of Customer Success    STRONG MATCH
-3    61/100   Punch Agency              Director Customer Success
-...
-
-4 of 10 roles logged to your Google Sheet
+✅ Logged to Google Sheet
+📄 Cover letter saved
+📄 Rewritten resume saved
 ```
+
+**In Google Sheets:**
+
+| Date | Job Title | Company | Score | URL | Key Notes | Red Flags | Bottom Line | Date Posted | Compensation |
+|------|-----------|---------|-------|-----|-----------|-----------|-------------|-------------|--------------|
+| 2026-06-10 | Director of CS | DroneDeploy | 78 | ... | Strong alignment... | Series C hiring pressure... | Strong fit... | June 2026 | $170k-$200k |
 
 ---
 
@@ -58,140 +92,58 @@ Logging to Google Sheet...
 | Tool | Purpose |
 |------|---------|
 | Python | Core language |
-| Anthropic Claude API | Job analysis, match scoring, red flag detection |
-| SerpAPI (Google Jobs) | Autonomous job search across multiple boards |
-| BeautifulSoup | Web scraping full job postings for enriched analysis |
-| gspread | Google Sheets integration |
-| Google Service Account | Sheets authentication |
-| python-dotenv | Secure API key management |
-| GitHub Actions | Scheduled daily runs at 8am Pacific |
+| Anthropic Claude API | All AI reasoning — scoring, analysis, cover letters, resume rewriting |
+| SerpAPI | Searches Google Jobs aggregating LinkedIn, Indeed, and others |
+| BeautifulSoup | Scrapes full job posting pages for enriched analysis |
+| gspread + Google Service Account | Reads and writes to Google Sheets |
+| python-dotenv | Keeps API keys out of code |
+| GitHub Actions | Runs the agent on a schedule every morning |
 
 ---
 
-## Architecture
+## What Makes This a Real Agent
 
-```
-Daily trigger (GitHub Actions 8am PT)
-    ↓
-SerpAPI fetches 10 matching roles from Google Jobs
-    ↓
-Claude fast-scans each role from description
-    ↓
-Score < 70 → skip
-Score ≥ 70 → fetch full job posting URL
-    ↓
-Claude deep-dives the full posting
-    ↓
-Log enriched result to Google Sheets
-```
+A basic script would take a URL and summarize it. This agent:
 
-This two-pass design keeps the agent fast on low-quality matches while ensuring strong matches get the richest possible analysis.
+- **Plans** — decides which roles are worth deeper analysis
+- **Uses tools** — search API, web scraper, Google Sheets, file system
+- **Has memory** — checks its own history to avoid duplicate work
+- **Makes decisions** — score below threshold? skip. already logged? skip. strong match? enrich, generate, log
+- **Acts autonomously** — the whole pipeline runs without human input at any step
+
+The cover letter and resume rewriter don't fabricate anything. They help surface and frame real experience in the language each specific role responds to — the same thing a career coach does, just faster.
 
 ---
 
-## Project Structure
+## What I Built It With
 
-```
-job-search-agent/
-├── job_finder.py        # Autonomous mode — searches SerpAPI and runs full pipeline
-├── job_matcher.py       # Manual/batch mode — analyzes URLs you paste in
-├── job_reader.py        # Standalone job description analyzer
-├── search_config.py     # Search criteria — edit to change keywords or location
-├── first_call.py        # Initial Claude API proof of concept
-├── .github/workflows/
-│   └── job_search.yml   # GitHub Actions scheduled workflow
-├── resume.txt           # Resume (local only, not tracked)
-├── credentials.json     # Google credentials (local only, not tracked)
-├── .env                 # API keys (local only, not tracked)
-└── .gitignore           # Keeps sensitive files off GitHub
-```
+No prior local dev setup. No CS degree. Built over roughly two days while on parental leave, starting from scratch with Python, VS Code, and the Anthropic API docs.
+
+The skills I developed hands-on:
+- Python scripting and API integration
+- Prompt engineering for structured JSON output
+- Web scraping with BeautifulSoup
+- Google Sheets API via service account authentication
+- GitHub Actions for cloud scheduling
+- Secure credential management (.env, GitHub Secrets)
+- Git version control
 
 ---
 
-## Setup
+## What I'd Build Next
 
-### 1. Clone the repo
-```bash
-git clone https://github.com/slacy77/job-search-agent
-cd job-search-agent
-```
-
-### 2. Install dependencies
-```bash
-pip3 install anthropic python-dotenv requests beautifulsoup4 gspread google-auth google-search-results
-```
-
-### 3. Add your credentials
-Create a `.env` file:
-```
-ANTHROPIC_API_KEY=your_anthropic_key_here
-SERPAPI_KEY=your_serpapi_key_here
-```
-
-Add your Google Service Account `credentials.json` to the project folder.
-
-### 4. Add your resume
-Save your resume as `resume.txt` in the project folder.
-
-### 5. Configure your search
-Edit `search_config.py`:
-```python
-SEARCH_CONFIG = {
-    "keywords": "Customer Success Director",
-    "location": "San Francisco",
-    "country": "us",
-    "max_results": 10,
-    "min_match_score": 70
-}
-```
-
-### 6. Run the agent
-
-**Autonomous mode:**
-```bash
-python3 job_finder.py
-```
-
-**Manual/batch mode:**
-```bash
-python3 job_matcher.py
-```
+- **Multi-keyword search** — rotate through multiple job titles in one run
+- **Email digest** — morning summary of new strong matches delivered to inbox
+- **Application tracker** — log when I apply, follow up reminders, interview stage tracking
 
 ---
 
-## Google Sheet Output
+## Why This Matters for CS Leadership Roles
 
-Every strong match (score 70+) is automatically logged with:
+Customer Success is increasingly an AI-augmented function. The CS leaders who will be most effective in the next few years aren't just great at relationships and retention — they understand how to build systems, automate workflows, and use AI tools to scale their team's impact.
 
-| Date | Job Title | Company | Match Score | Job URL | Key Notes | Red Flags | Bottom Line | Date Posted | Compensation |
-|------|-----------|---------|-------------|---------|-----------|-----------|-------------|-------------|--------------|
-
----
-
-## Roadmap
-
-- [x] Single job URL analysis
-- [x] Resume match scoring
-- [x] Red flag detection
-- [x] Google Sheets logging
-- [x] Batch mode — analyze multiple URLs at once
-- [x] Autonomous job finder via SerpAPI (Google Jobs)
-- [x] Two-pass analysis — fast scan + deep dive on strong matches
-- [x] Fully automated daily runs via GitHub Actions
-- [x] Compensation and date posted extraction
-- [ ] Duplicate detection — prevent same role being logged twice
-- [ ] Resume rewriter — tailors resume bullets to match a specific role
-- [ ] Cover letter generator — drafts a personalized cover letter for strong matches
-- [ ] Multi-keyword search — rotate through multiple job titles automatically
+Building this agent wasn't just a learning exercise. It's a demonstration of how I think about problems: find the repetitive parts, automate them, and free up human time for the work that actually requires judgment.
 
 ---
 
-## Why I Built This
-
-I built this agent during my job search to solve a real problem — manually reading and evaluating job postings is time-consuming and easy to do inconsistently. This agent gives me a structured, repeatable analysis of every role in seconds, automatically tracks the ones worth pursuing, and runs every morning before I wake up.
-
-It's also a deliberate learning project: I wanted hands-on experience building a real AI agent from scratch — including API integration, web scraping, autonomous decision logic, two-pass enrichment architecture, and cloud scheduling via GitHub Actions.
-
----
-
-*Built with the Anthropic Claude API*
+*Built with the Anthropic Claude API · [GitHub Profile](https://github.com/slacy77/slacy77)*
