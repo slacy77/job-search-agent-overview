@@ -1,6 +1,6 @@
 # Job Search Agent — Project Overview
 
-An AI-powered job search agent I built from scratch during parental leave to automate and improve my own job search. It finds roles, evaluates them against my background, generates application materials, and runs every morning without me touching it.
+An AI-powered job search agent I built from scratch during parental leave to automate and improve my own job search. It finds roles across multiple job titles, evaluates them against my background, generates application materials, and runs every morning without me touching it.
 
 This page is a plain-English walkthrough of what I built, how it works, and what I learned. The code lives in a private repo to protect credentials and personal data.
 
@@ -17,17 +17,18 @@ I also wanted to build something real with the Anthropic Claude API rather than 
 ## What It Does
 
 ### Every morning, automatically:
-1. Searches Google Jobs for Customer Success leadership roles in my target market
-2. Fast-scans each role against my resume and scores the match out of 100
-3. Skips anything below 70 — and skips roles already in my tracker
-4. Deep-dives on strong matches by fetching the full job posting page
-5. Generates a tailored cover letter as a starting draft
-6. Rewrites my resume bullets to surface the most relevant experience for that role
-7. Logs everything to a Google Sheet — score, fit notes, red flags, compensation, date posted
+1. Searches Google Jobs across 4 job titles simultaneously — Director of Customer Success, Director of Technical Account Management, VP of Customer Success, Director of Technical Customer Success
+2. Deduplicates results across all keyword searches so no role gets analyzed twice
+3. Fast-scans each role against my resume and scores the match out of 100
+4. Skips anything below 70 — and skips roles already in my tracker (it has memory across runs)
+5. Deep-dives on strong matches by fetching the full job posting page for richer analysis
+6. Generates a tailored cover letter as a starting draft
+7. Rewrites my resume bullets with a side-by-side comparison — original, rewritten, and the reasoning behind each change
+8. Logs everything to a Google Sheet — score, fit notes, red flags, compensation, date posted
 
 ### On demand:
 - Paste any job URL and get instant analysis
-- Batch mode — paste 10 URLs at once and process them all
+- Batch mode — paste multiple URLs at once and process them all
 
 ---
 
@@ -36,9 +37,10 @@ I also wanted to build something real with the Anthropic Claude API rather than 
 ```
 GitHub Actions triggers at 8am Pacific
         ↓
-SerpAPI searches Google Jobs for matching roles
+SerpAPI searches Google Jobs across 4 job titles
+Deduplicates results across all keyword searches
         ↓
-Claude fast-scans each role from the job description
+Claude fast-scans each unique role from the job description
         ↓
 Score < 70 → skip
 Already in tracker → skip (duplicate detection)
@@ -48,7 +50,7 @@ Score ≥ 70 + new role → fetch full job posting page
 Claude deep-dives the full posting (enriched analysis)
         ↓
 Generate tailored cover letter → save to file
-Rewrite resume bullets → save to file
+Rewrite resume bullets (side-by-side with reasoning) → save to file
 Log full analysis to Google Sheets
 ```
 
@@ -60,18 +62,23 @@ The two-pass design keeps things fast — Claude only does the expensive deep-di
 
 **In the terminal:**
 ```
-🔍 Searching for: Customer Success Director
-📍 Location: San Francisco
+📍 Location: San Francisco Bay Area
+🔍 Searching 4 keyword(s)...
 
-✅ Found 10 roles. Analyzing each one...
+  → Director of Customer Success
+  → Director of Technical Account Management
+  → VP of Customer Success
+  → Director of Technical Customer Success
 
-[3/10] Director of Customer Success at DroneDeploy
+✅ Found 18 unique roles. Analyzing each one...
+
+[3/18] Director of Customer Success at DroneDeploy
 Match Score: 78/100
 Compensation: $170,000 - $200,000
 Date Posted: June 2026
-Notes: Strong alignment with CS leadership background and team-building experience...
-Red Flags: Series C stage with rapid headcount growth may create hiring pressure...
-Bottom Line: Strong fit — early-stage enough to have real impact, funded enough to be stable.
+Notes: Strong alignment with CS leadership background...
+Red Flags: Series C hiring pressure may impact culture...
+Bottom Line: Strong fit — apply within the week.
 
 ⭐ Strong match! Fetching full posting for richer data...
 ✅ Logged to Google Sheet
@@ -79,11 +86,18 @@ Bottom Line: Strong fit — early-stage enough to have real impact, funded enoug
 📄 Rewritten resume saved
 ```
 
+**Resume rewriter output (side-by-side):**
+```
+ORIGINAL: Led team of 12 CSMs across SMB and Mid-Market segments
+REWRITTEN: Built and scaled a 12-person CSM team across SMB and Mid-Market, driving retention initiatives and owning GRR/NRR outcomes
+REASON: Added outcome-focused language matching the role's emphasis on retention metrics and revenue ownership
+```
+
 **In Google Sheets:**
 
-| Date | Job Title | Company | Score | URL | Key Notes | Red Flags | Bottom Line | Date Posted | Compensation |
-|------|-----------|---------|-------|-----|-----------|-----------|-------------|-------------|--------------|
-| 2026-06-10 | Director of CS | DroneDeploy | 78 | ... | Strong alignment... | Series C hiring pressure... | Strong fit... | June 2026 | $170k-$200k |
+| Date | Job Title | Company | Score | Key Notes | Red Flags | Bottom Line | Compensation |
+|------|-----------|---------|-------|-----------|-----------|-------------|--------------|
+| 2026-06-10 | Director of CS | DroneDeploy | 78 | Strong alignment... | Series C pressure... | Strong fit... | $170k-$200k |
 
 ---
 
@@ -111,13 +125,13 @@ A basic script would take a URL and summarize it. This agent:
 - **Makes decisions** — score below threshold? skip. already logged? skip. strong match? enrich, generate, log
 - **Acts autonomously** — the whole pipeline runs without human input at any step
 
-The cover letter and resume rewriter don't fabricate anything. They help surface and frame real experience in the language each specific role responds to — the same thing a career coach does, just faster.
+The cover letter and resume rewriter don't fabricate anything. They help surface and frame real experience in the language each specific role responds to — the same thing a career coach does, just faster. Every suggested change includes the reasoning behind it so I can decide what to keep.
 
 ---
 
 ## What I Built It With
 
-No prior local dev setup. No CS degree. Built over roughly two days while on parental leave, starting from scratch with Python, VS Code, and the Anthropic API docs.
+No prior local dev setup. No CS degree. Built over roughly two days while on parental leave with a newborn and a toddler, starting from scratch with Python, VS Code, and the Anthropic API docs.
 
 The skills I developed hands-on:
 - Python scripting and API integration
@@ -127,14 +141,15 @@ The skills I developed hands-on:
 - GitHub Actions for cloud scheduling
 - Secure credential management (.env, GitHub Secrets)
 - Git version control
+- Multi-source data aggregation and deduplication
 
 ---
 
 ## What I'd Build Next
 
-- **Multi-keyword search** — rotate through multiple job titles in one run
 - **Email digest** — morning summary of new strong matches delivered to inbox
 - **Application tracker** — log when I apply, follow up reminders, interview stage tracking
+- **Salary benchmarking** — cross-reference compensation data across similar roles
 
 ---
 
